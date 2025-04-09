@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFT Pixel Art Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script type="module" src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* gray-100 */
+        }
+        /* Style for generated items */
+        .generated-item {
+            background-color: white;
+            border: 1px solid #e5e7eb; /* gray-200 */
+            border-radius: 0.5rem; /* rounded-lg */
+            padding: 1rem; /* p-4 */
+            margin-bottom: 1rem; /* mb-4 */
+            display: flex;
+            align-items: center;
+            gap: 1rem; /* gap-4 */
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1); /* shadow-sm */
+        }
+        .generated-item img {
+            width: 64px;
+            height: 64px;
+            object-fit: contain;
+            border-radius: 0.25rem; /* rounded */
+            border: 1px solid #d1d5db; /* gray-300 */
+        }
+        .generated-item .links a {
+            display: inline-block;
+            margin-right: 0.5rem; /* mr-2 */
+            padding: 0.25rem 0.5rem; /* py-1 px-2 */
+            font-size: 0.875rem; /* text-sm */
+            background-color: #e5e7eb; /* gray-200 */
+            color: #374151; /* gray-700 */
+            border-radius: 0.25rem; /* rounded */
+            text-decoration: none;
+            transition: background-color 0.2s;
+        }
+        .generated-item .links a:hover {
+            background-color: #d1d5db; /* gray-300 */
+        }
+        .generated-item .attributes {
+            font-size: 0.75rem; /* text-xs */
+            color: #6b7280; /* gray-500 */
+            margin-top: 0.5rem; /* mt-2 */
+        }
+        /* Simple loading spinner */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #09f;
+            animation: spin 1s ease infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800 text-center">NFT Pixel Art Generator</h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+                <label for="numImages" class="block text-sm font-medium text-gray-700 mb-1">Number of Images to Generate:</label>
+                <input type="number" id="numImages" value="5" min="1" max="100" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div>
+                <label for="collectionName" class="block text-sm font-medium text-gray-700 mb-1">Collection Name:</label>
+                <input type="text" id="collectionName" value="My Pixel Art" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div class="md:col-span-2">
+                <label for="collectionDescription" class="block text-sm font-medium text-gray-700 mb-1">Collection Description:</label>
+                <input type="text" id="collectionDescription" value="Unique generated pixel art" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+             <div class="md:col-span-2">
+                <label for="imageDimensions" class="block text-sm font-medium text-gray-700 mb-1">Image Dimensions (Width x Height):</label>
+                <input type="text" id="imageDimensions" value="64x64" placeholder="e.g., 64x64" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                 <p class="text-xs text-gray-500 mt-1">Ensure all your layer PNGs match these dimensions.</p>
+            </div>
+        </div>
+
+        <div class="text-center mb-6">
+            <button id="generateBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg shadow transition duration-150 ease-in-out inline-flex items-center gap-2">
+                <i data-lucide="play" class="w-5 h-5"></i>
+                Generate Art
+            </button>
+        </div>
+
+        <div id="statusArea" class="text-center text-gray-600 mb-4"></div>
+        <div id="outputArea" class="mt-6">
+            </div>
+
+        <canvas id="generationCanvas" style="display: none;"></canvas>
+    </div>
+
+    <script>
+        // --- Configuration (IMPORTANT: EDIT THIS SECTION) ---
+
+        // Define the layers and their available trait filenames.
+        // The 'path' should be the relative path from the HTML file to the layer subfolder.
+        // The 'traits' array MUST list all the .png filenames within that subfolder.
+        const layerConfigurations = [
+            {
+                name: "Background", // Display name for metadata
+                path: "./layers/00_background/", // Relative path to folder
+                traits: ["blue.png", "green.png", "red.png", "yellow.png"] // <--- EDIT THIS LIST
+            },
+            {
+                name: "Body",
+                path: "./layers/01_body/",
+                traits: ["body_type1.png", "body_type2.png"] // <--- EDIT THIS LIST
+            },
+            {
+                name: "Eyes",
+                path: "./layers/02_eyes/",
+                traits: ["normal_eyes.png", "happy_eyes.png", "angry_eyes.png", "laser_eyes.png"] // <--- EDIT THIS LIST
+            },
+            {
+                name: "Mouth",
+                path: "./layers/03_mouth/",
+                traits: ["smile.png", "frown.png", "open.png"] // <--- EDIT THIS LIST
+            },
+            {
+                name: "Accessories",
+                path: "./layers/04_accessories/",
+                traits: ["hat.png", "glasses.png", "headband.png", "_none.png"] // <--- Use '_none.png' or similar for optional layers
+            }
+            // Add more layer objects here following the same structure
+        ];
+
+        // --- Element References ---
+        const generateBtn = document.getElementById('generateBtn');
+        const numImagesInput = document.getElementById('numImages');
+        const collectionNameInput = document.getElementById('collectionName');
+        const collectionDescriptionInput = document.getElementById('collectionDescription');
+        const imageDimensionsInput = document.getElementById('imageDimensions');
+        const statusArea = document.getElementById('statusArea');
+        const outputArea = document.getElementById('outputArea');
+        const canvas = document.getElementById('generationCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- Helper Functions ---
+
+        // Function to load an image asynchronously
+        function loadImage(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = (err) => {
+                    console.error(`Failed to load image: ${src}`, err);
+                    reject(`Failed to load ${src}`);
+                };
+                img.src = src;
+            });
+        }
+
+        // Function to create a downloadable link
+        function createDownloadLink(href, downloadName, linkText) {
+            const link = document.createElement('a');
+            link.href = href;
+            link.download = downloadName;
+            link.textContent = linkText;
+            return link;
+        }
+
+        // Function to generate a unique identifier string for a trait combination
+        function getSetIdentifier(selectedTraits) {
+             // Creates a string like "Background:blue.png|Body:body_type1.png|..."
+            return Object.entries(selectedTraits)
+                         .map(([layer, trait]) => `${layer}:${trait || 'none'}`)
+                         .sort() // Sort to ensure order doesn't affect uniqueness
+                         .join('|');
+        }
+
+        // --- Main Generation Logic ---
+        async function generateArt() {
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = `<div class="spinner !w-5 !h-5 !border-2 !inline-block !m-0 !mr-2"></div> Generating...`; // Show spinner
+            statusArea.textContent = 'Starting generation...';
+            outputArea.innerHTML = ''; // Clear previous results
+
+            const numToGenerate = parseInt(numImagesInput.value, 10);
+            const collectionName = collectionNameInput.value || "Untitled Collection";
+            const collectionDescription = collectionDescriptionInput.value || "";
+            const dimensions = imageDimensionsInput.value.split('x');
+            const imageWidth = parseInt(dimensions[0], 10) || 64; // Default width 64
+            const imageHeight = parseInt(dimensions[1], 10) || 64; // Default height 64
+
+            // Set canvas dimensions
+            canvas.width = imageWidth;
+            canvas.height = imageHeight;
+
+            const generatedSets = new Set();
+            const generatedItems = [];
+            let attempts = 0;
+            const maxAttempts = numToGenerate * 20; // Safety break
+
+            // Calculate max possible combinations (approximation, doesn't handle empty layers perfectly)
+            let maxCombinations = 1;
+            layerConfigurations.forEach(layer => {
+                if (layer.traits.length > 0) {
+                    maxCombinations *= layer.traits.length;
+                }
+            });
+
+            statusArea.textContent = `Attempting to generate ${numToGenerate} unique images (max possible: ${maxCombinations})...`;
+
+            while (generatedItems.length < numToGenerate && attempts < maxAttempts) {
+                attempts++;
+                const selectedTraits = {};
+                const currentAttributes = [];
+                let possible = true;
+
+                // Randomly select one trait from each layer
+                for (const layer of layerConfigurations) {
+                    if (layer.traits.length > 0) {
+                        const chosenTraitFilename = layer.traits[Math.floor(Math.random() * layer.traits.length)];
+                        // Handle optional layers signified by "_none.png" or similar
+                        if (chosenTraitFilename.toLowerCase().includes("none")) {
+                             selectedTraits[layer.name] = null; // Represent 'none' as null
+                             // Optionally add a 'None' attribute or skip
+                             // currentAttributes.push({ trait_type: layer.name, value: "None" });
+                        } else {
+                            selectedTraits[layer.name] = chosenTraitFilename;
+                            currentAttributes.push({ trait_type: layer.name, value: chosenTraitFilename.split('.')[0] }); // Use filename without extension
+                        }
+                    } else {
+                        selectedTraits[layer.name] = null; // Layer exists but has no traits defined
+                    }
+                }
+
+                const identifier = getSetIdentifier(selectedTraits);
+
+                if (!generatedSets.has(identifier)) {
+                    generatedSets.add(identifier);
+                    generatedItems.push({ id: generatedItems.length + 1, traits: selectedTraits, attributes: currentAttributes });
+                    // Update status dynamically (optional)
+                    // statusArea.textContent = `Generated unique set ${generatedItems.length}/${numToGenerate}...`;
+                }
+
+                // Yield control briefly to prevent browser freeze on large runs
+                if (attempts % 50 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+            }
+
+            if (generatedItems.length < numToGenerate) {
+                 statusArea.textContent = `Warning: Could only generate ${generatedItems.length} unique images after ${attempts} attempts. Try adding more trait variations.`;
+            } else {
+                 statusArea.textContent = `Successfully generated ${generatedItems.length} unique attribute sets. Now creating images...`;
+            }
+
+
+            // --- Image and Metadata Creation ---
+            let displayCount = 0;
+            for (const item of generatedItems) {
+                displayCount++;
+                statusArea.textContent = `Creating image ${displayCount}/${generatedItems.length}...`;
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas for each new image
+
+                // Draw layers onto canvas
+                try {
+                    for (const layerConfig of layerConfigurations) {
+                        const traitFilename = item.traits[layerConfig.name];
+                        if (traitFilename) { // Only draw if a trait was selected (not null/'none')
+                            const imagePath = `${layerConfig.path}${traitFilename}`;
+                            try {
+                                const img = await loadImage(imagePath);
+                                if (img.width !== imageWidth || img.height !== imageHeight) {
+                                     console.warn(`Image ${imagePath} dimensions (${img.width}x${img.height}) don't match target (${imageWidth}x${imageHeight}). Skipping draw.`);
+                                     // Optionally try to resize ctx.drawImage(img, 0, 0, imageWidth, imageHeight);
+                                } else {
+                                     ctx.drawImage(img, 0, 0);
+                                }
+                            } catch (loadError) {
+                                console.error(`Error loading or drawing trait ${imagePath}:`, loadError);
+                                // Optionally display a placeholder or skip
+                            }
+                        }
+                    }
+
+                    // Get image data URL
+                    const imageDataUrl = canvas.toDataURL('image/png');
+
+                    // Create metadata
+                    const metadata = {
+                        name: `${collectionName} #${item.id}`,
+                        description: collectionDescription,
+                        image: `ipfs://PLACEHOLDER_IMAGE_CID/${item.id}.png`, // Placeholder
+                        edition: item.id,
+                        attributes: item.attributes
+                    };
+                    const metadataString = JSON.stringify(metadata, null, 2);
+                    const metadataBlob = new Blob([metadataString], { type: 'application/json' });
+                    const metadataUrl = URL.createObjectURL(metadataBlob);
+
+                    // Create display element
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'generated-item';
+
+                    const previewImg = document.createElement('img');
+                    previewImg.src = imageDataUrl;
+                    previewImg.alt = `Generated Art #${item.id}`;
+
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'flex-grow'; // Take remaining space
+
+                    const title = document.createElement('h3');
+                    title.className = 'font-semibold text-gray-800';
+                    title.textContent = `Item #${item.id}`;
+
+                    const linksDiv = document.createElement('div');
+                    linksDiv.className = 'links mt-1';
+                    linksDiv.appendChild(createDownloadLink(imageDataUrl, `${item.id}.png`, 'Download Image'));
+                    linksDiv.appendChild(createDownloadLink(metadataUrl, `${item.id}.json`, 'Download Metadata'));
+
+                    const attributesP = document.createElement('p');
+                    attributesP.className = 'attributes';
+                    attributesP.textContent = `Attributes: ${item.attributes.map(a => `${a.trait_type}: ${a.value}`).join(', ')}`;
+
+
+                    infoDiv.appendChild(title);
+                    infoDiv.appendChild(linksDiv);
+                    infoDiv.appendChild(attributesP);
+                    itemDiv.appendChild(previewImg);
+                    itemDiv.appendChild(infoDiv);
+                    outputArea.appendChild(itemDiv);
+
+                } catch (drawError) {
+                    console.error(`Failed to generate image #${item.id}:`, drawError);
+                    statusArea.textContent = `Error generating image ${item.id}. Check console for details.`;
+                     // Display error message in output area
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'generated-item text-red-600';
+                    errorDiv.textContent = `Failed to generate Item #${item.id}. Check console for image loading errors. Ensure paths and filenames in 'layerConfigurations' are correct and images exist.`;
+                    outputArea.appendChild(errorDiv);
+                }
+                 // Brief pause to update UI
+                 await new Promise(resolve => setTimeout(resolve, 10));
+            }
+
+            statusArea.textContent = `Generation complete. ${generatedItems.length} items created.`;
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = `<i data-lucide="play" class="w-5 h-5"></i> Generate Art`; // Reset button text
+
+            // Re-initialize Lucide icons if new ones were added dynamically (may not be needed depending on Lucide version/setup)
+             if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
+                 lucide.createIcons();
+             }
+        }
+
+        // --- Event Listener ---
+        generateBtn.addEventListener('click', generateArt);
+
+         // Initialize Lucide icons on page load
+         if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
+             lucide.createIcons();
+         }
+
+    </script>
+</body>
+</html>
